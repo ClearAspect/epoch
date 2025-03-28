@@ -1,6 +1,6 @@
 mod cli;
 
-use chrono::{DateTime, Local};
+use chrono::{Local, NaiveDateTime};
 use clap::ArgMatches;
 use crossterm::{
     cursor,
@@ -11,27 +11,25 @@ use crossterm::{
 };
 use std::{io::stdout, thread::sleep, time::Duration};
 
-fn get_time(args: &ArgMatches) -> String {
-    let local: DateTime<Local> = Local::now();
-
+fn get_time_str(time: NaiveDateTime, args: &ArgMatches) -> String {
     let mut clock = String::new();
 
     // Create the format string
     if args.get_flag("year") {
-        clock.push_str(&local.format("%g:").to_string());
+        clock.push_str(&time.format("%g:").to_string());
     }
     if args.get_flag("month") {
-        clock.push_str(&local.format("%m:").to_string());
+        clock.push_str(&time.format("%m:").to_string());
     }
     if args.get_flag("day") {
-        clock.push_str(&local.format("%d:").to_string());
+        clock.push_str(&time.format("%d:").to_string());
     }
-    clock.push_str(&local.format("%H:%M").to_string());
+    clock.push_str(&time.format("%H:%M").to_string());
     if args.get_flag("second") {
-        clock.push_str(&local.format(":%S").to_string());
+        clock.push_str(&time.format(":%S").to_string());
     }
     if args.get_flag("millisecond") {
-        clock.push_str(&local.format(":%3f").to_string()[..3].to_string());
+        clock.push_str(&time.format(":%3f").to_string()[..3].to_string());
     }
 
     // Format is yy:mm:dd:hh:mm:ss:ms
@@ -54,7 +52,7 @@ fn main() -> std::io::Result<()> {
             }
         }
 
-        let time_str = get_time(&args);
+        let time_str = get_time_str(Local::now().naive_local(), &args);
         let (cols, rows) = terminal::size()?;
         let x = (cols.saturating_sub(time_str.len() as u16)) / 2;
         let y = rows / 2;
@@ -75,4 +73,30 @@ fn main() -> std::io::Result<()> {
     execute!(stdout, cursor::Show, LeaveAlternateScreen)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{NaiveDate, NaiveTime};
+
+    use super::*;
+
+    #[test]
+    fn test_get_time_str() {
+        let date = NaiveDate::from_ymd_opt(2025, 3, 28).unwrap();
+
+        let time = NaiveTime::from_hms_milli_opt(10, 59, 40, 10).unwrap();
+
+        let date_time = NaiveDateTime::new(date, time);
+
+        let args = cli::create_cli().get_matches_from(vec![
+            "chrono",
+            "--year",
+            "--month",
+            "--day",
+            "--second",
+            "--millisecond",
+        ]);
+        assert_eq!(get_time_str(date_time, &args), "25:03:28:10:59:40:01");
+    }
 }
